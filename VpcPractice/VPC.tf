@@ -90,24 +90,57 @@ resource "aws_route_table_association" "public_subnet2_association" {
   route_table_id = aws_route_table.public_route.id
 }
 
-resource "aws_default_security_group" "security_group" {
+# Definición del grupo de seguridad
+resource "aws_security_group" "sec_group" {
+
+
+  name        = "instance_sg"
+  description = "Security group for EC2 instance"
+
   vpc_id = aws_vpc.vpc_main.id
 
+  # Reglas de entrada
   ingress {
-    protocol  = -1
-    self      = true
-    from_port = 0
-    to_port   = 0
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
-
+  # Reglas de salida
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
 }
 
+# Definición de la instancia EC2
+resource "aws_instance" "EC2_Instance_1" {
+  ami           = "ami-04b70fa74e45c3917"  # ID de la AMI de Amazon Linux 2, por ejemplo
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.public_subnet1.id
+
+  vpc_security_group_ids = [
+    aws_security_group.sec_group.id  # Asocia la instancia al grupo de seguridad definido arriba
+  ]
+  tags = {
+    Name = "Ec2Instance"
+  }
+}
+
+# Definición de la instancia EC2
+resource "aws_instance" "EC2_Instance_2" {
+  ami           = "ami-04b70fa74e45c3917"  # ID de la AMI de Amazon Linux 2, por ejemplo
+  instance_type = "t2.micro"
+  subnet_id     = aws_subnet.public_subnet2.id
+
+  vpc_security_group_ids = [
+    aws_security_group.sec_group.id  # Asocia la instancia al grupo de seguridad definido arriba
+  ]
+  tags = {
+    Name = "Ec2Instance"
+  }
+}
 
 
