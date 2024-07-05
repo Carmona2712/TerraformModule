@@ -115,18 +115,55 @@ resource "aws_security_group" "sec_group" {
   }
 }
 
+# Definición del grupo de seguridad para el balanceador de carga
+resource "aws_lb_target_group" "target_group_app" {
+  name     = "targetGroupApp"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.vpc_main.id
+
+  health_check {
+    path                = "/"
+    protocol            = "HTTP"
+    port                = "traffic-port"
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 4
+    interval            = 5
+  }
+}
+
+# Definición del balanceador de carga
+resource "aws_lb" "load_balancer_app" {
+  name               = "loadBalancerApp"
+  internal           = false  # Configúralo como "true" si deseas un ALB interno
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.sec_group.id]
+  subnets            = [aws_subnet.public_subnet1.id, aws_subnet.public_subnet2.id]
+
+  tags = {
+    Name = "load-balancer-app"
+  }
+}
+
+
 # Definición de la instancia EC2
 resource "aws_instance" "EC2_Instance_1" {
   ami           = "ami-04b70fa74e45c3917"  # ID de la AMI de Amazon Linux 2, por ejemplo
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.public_subnet1.id
+  associate_public_ip_address = true
+  key_name = "MyWindowsKeyPair"  # Nombre de la clave SSH que se utilizará para conectarse a la instancia
 
   vpc_security_group_ids = [
     aws_security_group.sec_group.id  # Asocia la instancia al grupo de seguridad definido arriba
   ]
   tags = {
-    Name = "Ec2Instance"
+    Name = "Ec2Instance1"
   }
+
+  depends_on = [aws_lb_target_group.target_group_app]
+
 }
 
 # Definición de la instancia EC2
@@ -134,13 +171,45 @@ resource "aws_instance" "EC2_Instance_2" {
   ami           = "ami-04b70fa74e45c3917"  # ID de la AMI de Amazon Linux 2, por ejemplo
   instance_type = "t2.micro"
   subnet_id     = aws_subnet.public_subnet2.id
+  associate_public_ip_address = true
+  key_name = "MyWindowsKeyPair2"  # Nombre de la clave SSH que se utilizará para conectarse a la instancia
 
   vpc_security_group_ids = [
     aws_security_group.sec_group.id  # Asocia la instancia al grupo de seguridad definido arriba
   ]
   tags = {
-    Name = "Ec2Instance"
+    Name = "Ec2Instance2"
+  }
+
+  depends_on = [aws_lb_target_group.target_group_app]
+
+}
+
+resource "aws_lb_target_group_attachment" "ec2_instance_1_attachment" {
+  target_group_arn = aws_lb_target_group.target_group_app.arn
+  target_id        = aws_instance.EC2_Instance_1.id
+  port             = 80
+}
+
+resource "aws_lb_target_group_attachment" "ec2_instance_2_attachment" {
+  target_group_arn = aws_lb_target_group.target_group_app.arn
+  target_id        = aws_instance.EC2_Instance_2.id
+  port             = 80
+}
+
+resource "aws_lb_listener" "app_listener" {
+  load_balancer_arn = aws_lb.load_balancer_app.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.target_group_app.arn
   }
 }
+
+
+
+
 
 
